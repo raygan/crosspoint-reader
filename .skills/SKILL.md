@@ -869,4 +869,72 @@ struct PageLine {
 
 ---
 
+## Personal Fork: Bookerly Font Maintenance
+
+This fork replaces NotoSerif with Bookerly (Amazon's proprietary font, removed from upstream for licensing reasons). Bookerly lives at enum slot 0, same position NotoSerif occupied upstream.
+
+### Files that differ from upstream
+
+| File | What's different |
+|------|-----------------|
+| `src/CrossPointSettings.h` | `BOOKERLY = 0` instead of `NOTOSERIF = 0`; default is `BOOKERLY` |
+| `src/CrossPointSettings.cpp` | `case BOOKERLY:` in `getReaderFontId()` and `getReaderLineCompression()` |
+| `src/SettingsList.h` | `STR_BOOKERLY` instead of `STR_NOTO_SERIF` in font family list |
+| `src/fontIds.h` | `BOOKERLY_*_FONT_ID` constants instead of `NOTOSERIF_*` |
+| `src/main.cpp` | Bookerly font globals and `insertFont()` calls instead of NotoSerif |
+| `lib/EpdFont/builtinFonts/all.h` | Bookerly `#include`s instead of NotoSerif |
+| `lib/EpdFont/scripts/convert-builtin-fonts.sh` | Bookerly conversion loop added |
+| `lib/EpdFont/scripts/build-font-ids.sh` | `BOOKERLY_*_FONT_ID` entries added |
+| `lib/I18n/translations/*.yaml` | `STR_BOOKERLY` instead of `STR_NOTO_SERIF` in all 22 files |
+| `.gitignore` | `bookerly_*.h` and `source/Bookerly/` excluded |
+
+### Gitignored font assets (must exist locally to build)
+
+```
+lib/EpdFont/builtinFonts/bookerly_*.h        ← 16 compiled font headers
+lib/EpdFont/builtinFonts/source/Bookerly/    ← 4 TTF source files
+```
+
+To restore on a new machine, extract from this fork's git history:
+```bash
+mkdir -p lib/EpdFont/builtinFonts/source/Bookerly
+for size in 12 14 16 18; do
+  for style in regular bold italic bolditalic; do
+    git show a0f5e06:lib/EpdFont/builtinFonts/bookerly_${size}_${style}.h \
+      > lib/EpdFont/builtinFonts/bookerly_${size}_${style}.h
+  done
+done
+for style in Regular Bold Italic BoldItalic; do
+  git show a0f5e06:lib/EpdFont/builtinFonts/source/Bookerly/Bookerly-${style}.ttf \
+    > lib/EpdFont/builtinFonts/source/Bookerly/Bookerly-${style}.ttf
+done
+```
+
+### Pulling upstream changes
+
+```bash
+# 1. Add upstream remote if not present
+git remote add upstream <upstream-repo-url>
+
+# 2. Fetch and rebase onto upstream master
+git fetch upstream
+git rebase upstream/master
+```
+
+During the rebase, expect conflicts in the files listed above. The resolution in each case is to keep the Bookerly version (i.e. keep `BOOKERLY` where upstream has `NOTOSERIF`, keep Bookerly includes/globals where upstream has NotoSerif ones).
+
+After the rebase:
+
+```bash
+# 3. Regenerate i18n (always required after translation file changes)
+python scripts/gen_i18n.py lib/I18n/translations lib/I18n/
+
+# 4. Verify the build
+pio run
+```
+
+The gitignored font assets are unaffected by any git operation and do not need to be re-extracted after a pull.
+
+---
+
 Philosophy: We are building a dedicated e-reader, not a Swiss Army knife. If a feature adds RAM pressure without significantly improving the reading experience, it is Out of Scope.
