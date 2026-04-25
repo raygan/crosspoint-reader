@@ -3,6 +3,8 @@
 .DS_Store
 .vscode
 lib/EpdFont/fontsrc
+lib/EpdFont/builtinFonts/bookerly_*.h
+lib/EpdFont/builtinFonts/source/Bookerly/
 lib/I18n/I18nKeys.h
 lib/I18n/I18nStrings.h
 lib/I18n/I18nStrings.cpp
