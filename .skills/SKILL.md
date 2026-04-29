@@ -869,11 +869,17 @@ struct PageLine {
 
 ---
 
-## Personal Fork: Bookerly Font Maintenance
+## Personal Fork Customizations
+
+This fork adds two customizations on top of upstream. Both must be preserved whenever rebasing onto a new upstream commit.
+
+---
+
+### 1. Bookerly Font
 
 This fork replaces NotoSerif with Bookerly (Amazon's proprietary font, removed from upstream for licensing reasons). Bookerly lives at enum slot 0, same position NotoSerif occupied upstream.
 
-### Files that differ from upstream
+#### Files that differ from upstream
 
 | File | What's different |
 |------|-----------------|
@@ -888,7 +894,7 @@ This fork replaces NotoSerif with Bookerly (Amazon's proprietary font, removed f
 | `lib/I18n/translations/*.yaml` | `STR_BOOKERLY` instead of `STR_NOTO_SERIF` in all 22 files |
 | `.gitignore` | `bookerly_*.h` and `source/Bookerly/` excluded |
 
-### Gitignored font assets (must exist locally to build)
+#### Gitignored font assets (must exist locally to build)
 
 ```
 lib/EpdFont/builtinFonts/bookerly_*.h        ← 16 compiled font headers
@@ -910,20 +916,52 @@ for style in Regular Bold Italic BoldItalic; do
 done
 ```
 
+#### Conflict resolution during rebase
+
+Keep the Bookerly version throughout: keep `BOOKERLY` where upstream has `NOTOSERIF`, keep Bookerly includes/globals where upstream has NotoSerif ones.
+
+---
+
+### 2. KOReader Sync Long-Press Shortcut
+
+In reading mode, holding the Confirm/Select button for 1 second launches KOReader sync directly, bypassing the reader menu. This mirrors the existing Back long-press pattern (go home) already in the codebase.
+
+#### Files that differ from upstream
+
+| File | What's different |
+|------|-----------------|
+| `src/activities/reader/ReaderUtils.h` | `SYNC_HOLD_MS = 1000` constant added alongside `GO_HOME_MS` |
+| `src/activities/reader/EpubReaderActivity.h` | `startSyncActivity()` private method declared |
+| `src/activities/reader/EpubReaderActivity.cpp` | Long-press Confirm check added in `loop()` before `wasReleased` menu check; `startSyncActivity()` method defined; SYNC menu case refactored to call `startSyncActivity()` |
+
+#### Key implementation details
+
+- **Detection**: `isPressed(Confirm) && getHeldTime() >= SYNC_HOLD_MS` — fires while held, same pattern as Back long-press go-home.
+- **No menu bleed-through**: `startActivityForResult` suspends the parent loop while the sync activity runs; by the time the reader resumes, the button is released and `wasReleased` is false.
+- **No credentials**: silently does nothing, same as the menu item.
+- **Threshold**: 1000ms — consistent with `GO_HOME_MS`.
+
+#### Conflict resolution during rebase
+
+These files are additive (no upstream equivalents to conflict with), but if upstream touches `EpubReaderActivity.cpp` near the button-handling block in `loop()` or the `onReaderMenuConfirm` switch, preserve:
+1. The long-press Confirm block in `loop()` (before `wasReleased(Confirm)`)
+2. The `startSyncActivity()` method definition (after `onReaderMenuConfirm`)
+3. The one-line SYNC case in `onReaderMenuConfirm`
+
+---
+
 ### Pulling upstream changes
 
 ```bash
 # 1. Add upstream remote if not present
-git remote add upstream <upstream-repo-url>
+git remote add upstream https://github.com/crosspoint-reader/crosspoint-reader.git
 
 # 2. Fetch and rebase onto upstream master
 git fetch upstream
 git rebase upstream/master
 ```
 
-During the rebase, expect conflicts in the files listed above. The resolution in each case is to keep the Bookerly version (i.e. keep `BOOKERLY` where upstream has `NOTOSERIF`, keep Bookerly includes/globals where upstream has NotoSerif ones).
-
-After the rebase:
+Expect conflicts in the Bookerly files listed above. The KOReader sync files are unlikely to conflict. After resolving all conflicts:
 
 ```bash
 # 3. Regenerate i18n (always required after translation file changes)
